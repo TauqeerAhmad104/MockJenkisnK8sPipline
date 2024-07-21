@@ -1,0 +1,64 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jenkins-config
+  namespace: jenkins
+data:
+  jenkins.yaml: |
+    jenkins:
+      clouds:
+        - kubernetes:
+            name: "kubernetes"
+            namespace: "default"
+            templates:
+              - name: "jenkins-agent"
+                image: "jenkins/inbound-agent"
+                tag: "4.3-4"
+                resourceRequestCpu: "200m"
+                resourceRequestMemory: "256Mi"
+                resourceLimitCpu: "1"
+                resourceLimitMemory: "512Mi"
+                instanceCap: 10
+                yaml: |
+                  apiVersion: v1
+                  kind: Pod
+                  spec:
+                    containers:
+                      - name: jnlp
+                        image: "jenkins/inbound-agent:4.3-4"
+                        resources:
+                          requests:
+                            cpu: "200m"
+                            memory: "256Mi"
+                          limits:
+                            cpu: "1"
+                            memory: "512Mi"
+                      - name: docker
+                        image: "docker:19.03.12"
+                        securityContext:
+                          privileged: true
+                        volumeMounts:
+                          - name: docker-sock
+                            mountPath: /var/run/docker.sock
+                    volumes:
+                      - name: docker-sock
+                        hostPath:
+                          path: /var/run/docker.sock
+      securityRealm:
+        local:
+          users:
+            - id: admin
+              password: "admin"
+            - id: DevOps
+              password: "devops"
+      authorizationStrategy:
+        roleBased:
+          roles:
+            - name: "read-pods"
+              permissions:
+                - "hudson.model.Hudson.Read"
+                - "hudson.model.Item.Read"
+                - "hudson.model.View.Read"
+                - "hudson.model.Run.Read"
+              assignedRoles:
+                - "DevOps"
